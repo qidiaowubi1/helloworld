@@ -9,3 +9,5 @@ logs/*.log
 vite.config.js
 vite.config.d.ts
 .DS_Store
+
+.vercel
