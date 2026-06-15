@@ -1,0 +1,31 @@
+{
+  "assets": [
+    { "ticker": "SPCX", "name": "SpaceX", "theme": "Space/AI", "group": "主资产", "status": "观察", "priority": 1 },
+    { "ticker": "NVDA", "name": "Nvidia", "theme": "AI核心", "group": "主资产", "status": "核心", "priority": 2 },
+    { "ticker": "MSFT", "name": "Microsoft", "theme": "AI云", "group": "主资产", "status": "核心", "priority": 3 },
+    { "ticker": "AAPL", "name": "Apple", "theme": "端侧AI", "group": "主资产", "status": "观察", "priority": 4 },
+    { "ticker": "AMZN", "name": "Amazon", "theme": "AWS/AI", "group": "主资产", "status": "重点", "priority": 5 },
+    { "ticker": "GOOGL", "name": "Alphabet", "theme": "搜索/云/TPU", "group": "主资产", "status": "重点", "priority": 6 },
+    { "ticker": "META", "name": "Meta", "theme": "AI广告", "group": "主资产", "status": "观察", "priority": 7 },
+    { "ticker": "TSLA", "name": "Tesla", "theme": "EV/Robotaxi", "group": "主资产", "status": "事件型", "priority": 8 },
+    { "ticker": "TSM", "name": "TSMC", "theme": "先进制程", "group": "AI算力", "status": "核心", "priority": 9 },
+    { "ticker": "ASML", "name": "ASML", "theme": "EUV瓶颈", "group": "AI算力", "status": "重点", "priority": 10 },
+    { "ticker": "AVGO", "name": "Broadcom", "theme": "AI ASIC/网络", "group": "AI算力", "status": "核心", "priority": 11 },
+    { "ticker": "AMD", "name": "AMD", "theme": "AI GPU替代", "group": "AI算力", "status": "重点", "priority": 12 },
+    { "ticker": "MU", "name": "Micron", "theme": "HBM/DRAM", "group": "AI算力", "status": "重点", "priority": 13 },
+    { "ticker": "ARM", "name": "Arm", "theme": "AI CPU生态", "group": "AI算力", "status": "观察", "priority": 14 },
+    { "ticker": "VRT", "name": "Vertiv", "theme": "数据中心电源/液冷", "group": "数据中心/电力", "status": "重点", "priority": 15 },
+    { "ticker": "ETN", "name": "Eaton", "theme": "配电设备", "group": "数据中心/电力", "status": "重点", "priority": 16 },
+    { "ticker": "ANET", "name": "Arista Networks", "theme": "AI网络", "group": "数据中心/电力", "status": "重点", "priority": 17 },
+    { "ticker": "SMCI", "name": "Super Micro", "theme": "AI服务器", "group": "数据中心/电力", "status": "观察", "priority": 18 },
+    { "ticker": "DELL", "name": "Dell", "theme": "企业AI服务器", "group": "数据中心/电力", "status": "观察", "priority": 19 },
+    { "ticker": "CEG", "name": "Constellation Energy", "theme": "AI电力", "group": "数据中心/电力", "status": "重点", "priority": 20 },
+    { "ticker": "RKLB", "name": "Rocket Lab", "theme": "太空经济代理", "group": "SpaceX生态", "status": "观察", "priority": 21 },
+    { "ticker": "IRDM", "name": "Iridium", "theme": "卫星通信", "group": "SpaceX生态", "status": "观察", "priority": 22 },
+    { "ticker": "ASTS", "name": "AST SpaceMobile", "theme": "卫星直连手机", "group": "SpaceX生态", "status": "事件型", "priority": 23 },
+    { "ticker": "VSAT", "name": "Viasat", "theme": "卫星宽带竞争", "group": "SpaceX生态", "status": "观察", "priority": 24 },
+    { "ticker": "LHX", "name": "L3Harris", "theme": "国防航天电子", "group": "SpaceX生态", "status": "观察", "priority": 25 },
+    { "ticker": "HWM", "name": "Howmet Aerospace", "theme": "航天材料/部件", "group": "SpaceX生态", "status": "观察", "priority": 26 },
+    { "ticker": "RDW", "name": "Redwire", "theme": "SpaceX合作线索/太空基础设施", "group": "SpaceX生态", "status": "重点观察", "priority": 27 }
+  ]
+}

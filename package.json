@@ -1,0 +1,29 @@
+{
+  "name": "spacex-monitoring-dashboard",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:all": "node scripts/dev-all.js",
+    "api": "node server/api.js",
+    "data:migrate": "node server/migrate.js",
+    "data:update": "node server/update-data.js",
+    "schedule:install": "powershell -ExecutionPolicy Bypass -File scripts/install-schedule.ps1",
+    "schedule:remove": "powershell -ExecutionPolicy Bypass -File scripts/remove-schedule.ps1",
+    "schedule:status": "powershell -ExecutionPolicy Bypass -File scripts/schedule-status.ps1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.1.1",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.16"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3"
+  }
+}
