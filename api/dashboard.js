@@ -104,18 +104,36 @@ async function fetchQuote(ticker) {
   if (!res.ok) return null;
   const json = await res.json();
   const result = json?.chart?.result?.[0];
+  const meta = result?.meta || {};
   const quote = result?.indicators?.quote?.[0];
-  const closes = (quote?.close || []).filter((value) => typeof value === "number");
-  const volumes = (quote?.volume || []).filter((value) => typeof value === "number");
   const timestamps = result?.timestamp || [];
-  if (!closes.length) return null;
-  const price = closes.at(-1);
-  const prev = closes.at(-2) || price;
-  const five = closes.at(-6) || closes[0] || price;
-  const twenty = closes.at(-21) || closes[0] || price;
-  const avgVolume = average(volumes.slice(-21, -1));
-  const lastVolume = volumes.at(-1) || 0;
-  const asOf = timestamps.length ? new Date(timestamps.at(-1) * 1000).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+  const points = timestamps.map((timestamp, index) => ({
+    date: new Date(timestamp * 1000).toISOString().slice(0, 10),
+    close: quote?.close?.[index],
+    volume: quote?.volume?.[index] || 0
+  })).filter((point) => Number.isFinite(point.close));
+  const metaPrice = Number(meta.regularMarketPrice);
+  const metaTime = Number(meta.regularMarketTime);
+  if (Number.isFinite(metaPrice)) {
+    const metaDate = Number.isFinite(metaTime) ? new Date(metaTime * 1000).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const latest = points.at(-1);
+    const metaVolume = Number(meta.regularMarketVolume || latest?.volume || 0);
+    if (!latest || latest.date !== metaDate) {
+      points.push({ date: metaDate, close: metaPrice, volume: metaVolume });
+    } else {
+      latest.close = metaPrice;
+      latest.volume = metaVolume;
+    }
+  }
+  if (!points.length) return null;
+  const price = points.at(-1).close;
+  const prev = points.at(-2)?.close || Number(meta.chartPreviousClose) || price;
+  const five = points.at(-6)?.close || points[0]?.close || price;
+  const twenty = points.at(-21)?.close || points[0]?.close || price;
+  const previousVolumes = points.slice(-21, -1).map((point) => point.volume).filter((value) => Number.isFinite(value));
+  const avgVolume = average(previousVolumes);
+  const lastVolume = points.at(-1).volume || 0;
+  const asOf = points.at(-1).date;
   return {
     price,
     dailyChange: pct(price, prev),

@@ -27,6 +27,7 @@ export class StooqProvider {
 
     const timestamps = result.timestamp || [];
     const quote = result.indicators?.quote?.[0] || {};
+    const meta = result.meta || {};
     const rows = timestamps.map((timestamp, index) => ({
       ticker,
       date: new Date(timestamp * 1000).toISOString().slice(0, 10),
@@ -36,6 +37,27 @@ export class StooqProvider {
       close: quote.close?.[index],
       volume: quote.volume?.[index]
     })).filter((row) => Number.isFinite(row.close));
+    const metaPrice = Number(meta.regularMarketPrice);
+    if (Number.isFinite(metaPrice)) {
+      const metaTime = Number(meta.regularMarketTime);
+      const metaDate = Number.isFinite(metaTime) ? new Date(metaTime * 1000).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+      const latest = rows.at(-1);
+      const metaVolume = Number(meta.regularMarketVolume || latest?.volume || 0);
+      const currentRow = {
+        ticker,
+        date: metaDate,
+        open: Number.isFinite(Number(meta.regularMarketOpen)) ? Number(meta.regularMarketOpen) : latest?.open ?? metaPrice,
+        high: Number.isFinite(Number(meta.regularMarketDayHigh)) ? Number(meta.regularMarketDayHigh) : Math.max(latest?.high ?? metaPrice, metaPrice),
+        low: Number.isFinite(Number(meta.regularMarketDayLow)) ? Number(meta.regularMarketDayLow) : Math.min(latest?.low ?? metaPrice, metaPrice),
+        close: metaPrice,
+        volume: metaVolume
+      };
+      if (!latest || latest.date !== metaDate) {
+        rows.push(currentRow);
+      } else {
+        Object.assign(latest, currentRow);
+      }
+    }
 
     if (!rows.length) {
       throw new Error(`No daily quote data for ${ticker}`);
@@ -162,6 +184,8 @@ async function fetchLatestClose(symbol) {
   const data = await response.json();
   const result = data.chart?.result?.[0];
   if (!result || data.chart?.error) throw new Error(`${symbol}: ${data.chart?.error?.description || "No data"}`);
+  const metaPrice = Number(result.meta?.regularMarketPrice);
+  if (Number.isFinite(metaPrice)) return metaPrice;
   const closes = result.indicators?.quote?.[0]?.close || [];
   const latest = [...closes].reverse().find((value) => Number.isFinite(value));
   if (!Number.isFinite(latest)) throw new Error(`${symbol}: missing close`);
