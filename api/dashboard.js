@@ -51,7 +51,7 @@ export async function buildLiveDashboard() {
   const events = buildEvents(news);
   return {
     meta: {
-      version: "0.2.3",
+      version: "0.2.4",
       dataStatus: "ready",
       hasApiKey: Boolean(process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY),
       lastUpdated: new Date().toISOString(),
@@ -80,7 +80,7 @@ async function fetchCloudSnapshot() {
       ...snapshot,
       meta: {
         ...snapshot.meta,
-        version: snapshot.meta?.version || "0.2.2",
+        version: snapshot.meta?.version || "0.2.4",
         dataStatus: snapshot.meta?.dataStatus || "ready",
         message: `Cloud batch snapshot via Vercel Blob. ${snapshot.meta?.message || ""}`.trim(),
         cloudSource: "vercel-blob",
