@@ -30,6 +30,11 @@ const MARKET_SYMBOLS = {
 
 export default async function handler(_request, response) {
   try {
+    const cloudSnapshot = await fetchCloudSnapshot();
+    if (cloudSnapshot) {
+      return response.status(200).json(cloudSnapshot);
+    }
+
     const [quotes, marketSnapshot, news] = await Promise.all([
       fetchQuotes(WATCHLIST.map((asset) => asset.ticker)),
       fetchMarketSnapshot(),
@@ -54,6 +59,33 @@ export default async function handler(_request, response) {
     });
   } catch (error) {
     response.status(500).json({ error: error instanceof Error ? error.message : "Dashboard API failed" });
+  }
+}
+
+async function fetchCloudSnapshot() {
+  const url = process.env.DASHBOARD_BLOB_URL;
+  if (!url) return null;
+  try {
+    const res = await fetch(`${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`, {
+      headers: { accept: "application/json" },
+      cache: "no-store"
+    });
+    if (!res.ok) throw new Error(`Blob snapshot returned ${res.status}`);
+    const snapshot = await res.json();
+    return {
+      ...snapshot,
+      meta: {
+        ...snapshot.meta,
+        version: snapshot.meta?.version || "0.2.2",
+        dataStatus: snapshot.meta?.dataStatus || "ready",
+        message: `Cloud batch snapshot via Vercel Blob. ${snapshot.meta?.message || ""}`.trim(),
+        cloudSource: "vercel-blob",
+        cloudUrl: url
+      }
+    };
+  } catch (error) {
+    console.warn(`Cloud snapshot unavailable: ${error.message}`);
+    return null;
   }
 }
 

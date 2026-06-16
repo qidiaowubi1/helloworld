@@ -1,6 +1,6 @@
 {
   "name": "spacex-monitoring-dashboard",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,6 +9,9 @@
     "api": "node server/api.js",
     "data:migrate": "node server/migrate.js",
     "data:update": "node server/update-data.js",
+    "data:export": "node scripts/export-dashboard-json.js",
+    "data:publish": "node scripts/publish-dashboard-blob.js",
+    "data:update:publish": "npm run data:update && npm run data:export && npm run data:publish",
     "schedule:install": "powershell -ExecutionPolicy Bypass -File scripts/install-schedule.ps1",
     "schedule:remove": "powershell -ExecutionPolicy Bypass -File scripts/remove-schedule.ps1",
     "schedule:status": "powershell -ExecutionPolicy Bypass -File scripts/schedule-status.ps1",
@@ -16,6 +19,7 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
+    "@vercel/blob": "^2.0.0",
     "@vitejs/plugin-react": "^5.1.1",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",

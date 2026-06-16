@@ -3,6 +3,7 @@ dist/
 data/*.sqlite
 data/*.sqlite-*
 data/*.lock
+data/dashboard*.json
 logs/*.log
 .env.local
 *.tsbuildinfo
@@ -11,3 +12,4 @@ vite.config.d.ts
 .DS_Store
 
 .vercel
+.env*
