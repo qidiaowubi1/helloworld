@@ -35,31 +35,35 @@ export default async function handler(_request, response) {
       return response.status(200).json(cloudSnapshot);
     }
 
-    const [quotes, marketSnapshot, news] = await Promise.all([
-      fetchQuotes(WATCHLIST.map((asset) => asset.ticker)),
-      fetchMarketSnapshot(),
-      fetchSpaceNews()
-    ]);
-    const assets = WATCHLIST.map((asset) => toAsset(asset, quotes.get(asset.ticker), news));
-    const events = buildEvents(news);
-    response.status(200).json({
-      meta: {
-        version: "0.2.1",
-        dataStatus: "ready",
-        hasApiKey: Boolean(process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY),
-        lastUpdated: new Date().toISOString(),
-        message: "Vercel API live: Yahoo chart + Google News RSS fallback; local SQLite is used only in desktop dev."
-      },
-      marketSnapshot,
-      assets,
-      alerts: buildAlerts(assets),
-      events,
-      risk: buildRisk(assets),
-      themeHeat: buildThemeHeat(assets)
-    });
+    response.status(200).json(await buildLiveDashboard());
   } catch (error) {
     response.status(500).json({ error: error instanceof Error ? error.message : "Dashboard API failed" });
   }
+}
+
+export async function buildLiveDashboard() {
+  const [quotes, marketSnapshot, news] = await Promise.all([
+    fetchQuotes(WATCHLIST.map((asset) => asset.ticker)),
+    fetchMarketSnapshot(),
+    fetchSpaceNews()
+  ]);
+  const assets = WATCHLIST.map((asset) => toAsset(asset, quotes.get(asset.ticker), news));
+  const events = buildEvents(news);
+  return {
+    meta: {
+      version: "0.2.3",
+      dataStatus: "ready",
+      hasApiKey: Boolean(process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY),
+      lastUpdated: new Date().toISOString(),
+      message: "Vercel cron snapshot: Yahoo chart + Google News RSS fallback."
+    },
+    marketSnapshot,
+    assets,
+    alerts: buildAlerts(assets),
+    events,
+    risk: buildRisk(assets),
+    themeHeat: buildThemeHeat(assets)
+  };
 }
 
 async function fetchCloudSnapshot() {
