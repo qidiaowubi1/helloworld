@@ -66,7 +66,7 @@ export default function App() {
   async function loadDashboard() {
     try {
       setStatus("loading");
-      const response = await fetch("/api/dashboard");
+      const response = await fetch("/api/dashboard", { cache: "no-store" });
       if (!response.ok) throw new Error(await response.text());
       const payload = (await response.json()) as DashboardData;
       setData(payload);
@@ -101,7 +101,8 @@ export default function App() {
     try {
       const response = await fetch("/api/admin/refresh", { method: "POST" });
       if (!response.ok) throw new Error(await response.text());
-      setError("已触发后台更新；稍后刷新 Dashboard 查看结果。");
+      await loadDashboard();
+      setError("已完成云端更新，Dashboard 已重新读取最新数据。");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Refresh failed.");
     } finally {

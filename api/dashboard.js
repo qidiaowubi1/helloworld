@@ -30,11 +30,27 @@ const MARKET_SYMBOLS = {
   gold: "GC=F"
 };
 
-export default async function handler(_request, response) {
+export default async function handler(request, response) {
   try {
+    setNoStore(response);
+    const preferBlob = request.query?.source === "blob";
+    if (!preferBlob) {
+      try {
+        return response.status(200).json(await buildLiveDashboard());
+      } catch (error) {
+        console.warn(`Live dashboard unavailable: ${error.message}`);
+      }
+    }
+
     const cloudSnapshot = await fetchCloudSnapshot();
     if (cloudSnapshot) {
-      return response.status(200).json(cloudSnapshot);
+      return response.status(200).json({
+        ...cloudSnapshot,
+        meta: {
+          ...cloudSnapshot.meta,
+          servedAsFallback: !preferBlob
+        }
+      });
     }
 
     response.status(200).json(await buildLiveDashboard());
@@ -53,7 +69,7 @@ export async function buildLiveDashboard() {
   const events = buildEvents(news);
   return {
     meta: {
-      version: "0.2.5",
+      version: "0.2.6",
       dataStatus: "ready",
       hasApiKey: Boolean(process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY),
       lastUpdated: new Date().toISOString(),
@@ -83,7 +99,7 @@ async function fetchCloudSnapshot() {
       ...snapshot,
       meta: {
         ...snapshot.meta,
-        version: snapshot.meta?.version || "0.2.5",
+        version: snapshot.meta?.version || "0.2.6",
         dataStatus: snapshot.meta?.dataStatus || "ready",
         message: `Cloud batch snapshot via Vercel Blob. ${snapshot.meta?.message || ""}`.trim(),
         cloudSource: "vercel-blob",
@@ -97,16 +113,22 @@ async function fetchCloudSnapshot() {
 }
 
 async function fetchQuotes(tickers) {
-  const pairs = await Promise.all(tickers.map(async (ticker) => [ticker, await fetchQuote(ticker)]));
+  const pairs = await Promise.all(tickers.map(async (ticker) => [
+    ticker,
+    await fetchQuote(ticker).catch((error) => {
+      console.warn(`${ticker} quote unavailable: ${error.message}`);
+      return null;
+    })
+  ]));
   return new Map(pairs);
 }
 
 async function fetchQuote(ticker) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1mo&interval=1d`;
-  const res = await fetch(url, { headers: { "user-agent": "Mozilla/5.0" } });
-  if (!res.ok) return null;
-  const json = await res.json();
-  const result = json?.chart?.result?.[0];
+  const [dailyJson, intradayJson] = await Promise.all([
+    fetchYahooChart(ticker, "1mo", "1d", false),
+    fetchYahooChart(ticker, "5d", "5m", true).catch(() => null)
+  ]);
+  const result = dailyJson?.chart?.result?.[0];
   const meta = result?.meta || {};
   const quote = result?.indicators?.quote?.[0];
   const timestamps = result?.timestamp || [];
@@ -115,41 +137,106 @@ async function fetchQuote(ticker) {
     close: quote?.close?.[index],
     volume: quote?.volume?.[index] || 0
   })).filter((point) => Number.isFinite(point.close));
+
+  const intradayPoint = latestIntradayPoint(intradayJson);
   const metaPrice = Number(meta.regularMarketPrice);
-  const metaTime = Number(meta.regularMarketTime);
-  if (Number.isFinite(metaPrice)) {
+  if (intradayPoint?.price != null) {
+    mergeLatestPoint(points, {
+      date: intradayPoint.date,
+      close: intradayPoint.price,
+      volume: intradayPoint.volume,
+      timestamp: intradayPoint.timestamp,
+      session: intradayPoint.session
+    });
+  } else if (Number.isFinite(metaPrice)) {
+    const metaTime = Number(meta.regularMarketTime);
     const metaDate = Number.isFinite(metaTime) ? new Date(metaTime * 1000).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
-    const latest = points.at(-1);
-    const metaVolume = Number(meta.regularMarketVolume || latest?.volume || 0);
-    if (!latest || latest.date !== metaDate) {
-      points.push({ date: metaDate, close: metaPrice, volume: metaVolume });
-    } else {
-      latest.close = metaPrice;
-      latest.volume = metaVolume;
-    }
+    mergeLatestPoint(points, {
+      date: metaDate,
+      close: metaPrice,
+      volume: Number(meta.regularMarketVolume || points.at(-1)?.volume || 0),
+      timestamp: metaTime,
+      session: "regular"
+    });
   }
+
   if (!points.length) return null;
   const price = points.at(-1).close;
-  const prev = points.at(-2)?.close || Number(meta.chartPreviousClose) || price;
+  const prev = previousDailyClose(points) || Number(meta.chartPreviousClose) || price;
   const five = points.at(-6)?.close || points[0]?.close || price;
   const twenty = points.at(-21)?.close || points[0]?.close || price;
   const previousVolumes = points.slice(-21, -1).map((point) => point.volume).filter((value) => Number.isFinite(value));
   const avgVolume = average(previousVolumes);
   const lastVolume = points.at(-1).volume || 0;
-  const asOf = points.at(-1).date;
+  const latest = points.at(-1);
   return {
     price,
     dailyChange: pct(price, prev),
     fiveDayChange: pct(price, five),
     twentyDayChange: pct(price, twenty),
     volumeRatio: avgVolume ? lastVolume / avgVolume : null,
-    asOf
+    asOf: latest.date,
+    lastTradeAt: latest.timestamp ? new Date(latest.timestamp * 1000).toISOString() : null,
+    session: latest.session || "daily"
   };
+}
+
+async function fetchYahooChart(ticker, range, interval, includePrePost) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=${range}&interval=${interval}&includePrePost=${includePrePost ? "true" : "false"}`;
+  const res = await fetch(url, { headers: { "user-agent": "Mozilla/5.0" }, cache: "no-store" });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+function latestIntradayPoint(json) {
+  const result = json?.chart?.result?.[0];
+  if (!result || json?.chart?.error) return null;
+  const meta = result?.meta || {};
+  const quote = result?.indicators?.quote?.[0];
+  const timestamps = result?.timestamp || [];
+  for (let index = timestamps.length - 1; index >= 0; index -= 1) {
+    const close = Number(quote?.close?.[index]);
+    if (!Number.isFinite(close)) continue;
+    const timestamp = Number(timestamps[index]);
+    return {
+      date: new Date(timestamp * 1000).toISOString().slice(0, 10),
+      timestamp,
+      price: close,
+      volume: Number(quote?.volume?.[index] || 0),
+      session: classifySession(timestamp, meta)
+    };
+  }
+  return null;
+}
+
+function mergeLatestPoint(points, point) {
+  const latest = points.at(-1);
+  if (!latest || latest.date !== point.date) {
+    points.push(point);
+  } else {
+    Object.assign(latest, point);
+  }
+}
+
+function previousDailyClose(points) {
+  const latest = points.at(-1);
+  return [...points].reverse().find((point) => point.date !== latest?.date && Number.isFinite(point.close))?.close;
+}
+
+function classifySession(timestamp, meta) {
+  const regularStart = Number(meta.currentTradingPeriod?.regular?.start);
+  const regularEnd = Number(meta.currentTradingPeriod?.regular?.end);
+  if (Number.isFinite(regularStart) && timestamp < regularStart) return "pre";
+  if (Number.isFinite(regularEnd) && timestamp > regularEnd) return "post";
+  return "regular";
 }
 
 async function fetchMarketSnapshot() {
   const entries = await Promise.all(Object.entries(MARKET_SYMBOLS).map(async ([key, symbol]) => {
-    const quote = await fetchQuote(symbol);
+    const quote = await fetchQuote(symbol).catch((error) => {
+      console.warn(`${symbol} market snapshot unavailable: ${error.message}`);
+      return null;
+    });
     return [key, quote?.price ?? null];
   }));
   const snapshot = Object.fromEntries(entries);
@@ -166,7 +253,7 @@ async function fetchMarketSnapshot() {
 async function fetchSpaceNews() {
   const query = encodeURIComponent('(SpaceX OR Starlink OR Starship OR "Redwire" OR RDW) (FAA OR FCC OR NASA OR launch OR contract OR payload OR valuation)');
   const url = `https://news.google.com/rss/search?q=${query}&hl=en-US&gl=US&ceid=US:en`;
-  const res = await fetch(url, { headers: { "user-agent": "Mozilla/5.0" } });
+  const res = await fetch(url, { headers: { "user-agent": "Mozilla/5.0" }, cache: "no-store" });
   if (!res.ok) return [];
   const xml = await res.text();
   return [...xml.matchAll(/<item>[\s\S]*?<title><!\[CDATA\[(.*?)\]\]><\/title>[\s\S]*?<link>(.*?)<\/link>[\s\S]*?<pubDate>(.*?)<\/pubDate>/g)]
@@ -375,4 +462,9 @@ function pct(current, previous) {
 
 function clean(value) {
   return String(value || "").replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+}
+
+function setNoStore(response) {
+  response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+  response.setHeader("Pragma", "no-cache");
 }
