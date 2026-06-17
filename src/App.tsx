@@ -25,6 +25,7 @@ interface DashboardData {
     notes: string[];
   };
   themeHeat: Array<{ name: string; value: number; change: number }>;
+  decisionSummary?: DecisionSummaryModel | null;
 }
 
 const pages: Array<{ id: Page; label: string }> = [
@@ -253,6 +254,7 @@ function SpaceXFocusDashboard({
   const infra = infraTickers.map((ticker) => assets.find((asset) => asset.ticker === ticker)).filter(Boolean) as Asset[];
   const spcxEvents = (data?.events ?? []).filter((event) => event.ticker === "SPCX").slice(0, 6);
   const advice = buildSpcxAdviceV2(spcx, data?.marketSnapshot, related);
+  const decision = data?.decisionSummary ?? buildDecisionSummary(spcx, data?.marketSnapshot, related, advice.triggers);
 
   return (
     <section className="spacex-focus">
@@ -288,6 +290,8 @@ function SpaceXFocusDashboard({
         <p>{advice.reason}</p>
         <TriggerChecklist items={advice.triggers} />
       </section>
+
+      <DecisionSummary decision={decision} />
 
       <SpaceXSignalSection spcx={spcx} />
       <PolicySection spcx={spcx} events={spcxEvents} />
@@ -436,6 +440,141 @@ function TriggerChecklist({ items }: { items: TriggerItem[] }) {
         </article>
       ))}
     </div>
+  );
+}
+
+type DecisionSummaryModel = {
+  tone: RiskLevel;
+  title: string;
+  thesis: string;
+  action: string;
+  reasons: string[];
+  watch: Array<{ label: string; value: string; state: RiskLevel }>;
+  upgrade: string[];
+  downgrade: string[];
+};
+
+function buildDecisionSummary(
+  spcx: Asset,
+  snapshot: Record<string, unknown> | undefined,
+  related: Asset[],
+  triggers: TriggerItem[]
+): DecisionSummaryModel {
+  const priceChange = spcx.dailyChange ?? 0;
+  const volumeRatio = spcx.volumeRatio ?? null;
+  const redRelated = related.filter((asset) => asset.riskLevel === "red");
+  const yellowRelated = related.filter((asset) => asset.riskLevel === "yellow");
+  const vix = marketNumber(snapshot, "vix");
+  const tenYear = marketNumber(snapshot, "ten_year_yield");
+  const hardTriggered = triggers.filter((trigger) => trigger.status === "triggered");
+  const watchTriggers = triggers.filter((trigger) => trigger.status === "watch");
+  const priceStrong = priceChange >= 15;
+  const volumeWeak = volumeRatio != null && volumeRatio < 0.4;
+  const ecosystemWeak = redRelated.length >= 2 || redRelated.length + yellowRelated.length >= 4;
+  const macroOk = (vix == null || vix < 19) && (tenYear == null || tenYear < 4.6);
+  const newsSignal = spcx.signals.find((signal) => signal.label.includes("新闻") || signal.label.includes("消息"));
+
+  let tone: RiskLevel = "green";
+  let title = "观察为主，等待催化";
+  let action = "保持观察，不因单一新闻主动升级。";
+
+  if (hardTriggered.length || ecosystemWeak || (priceStrong && volumeWeak)) {
+    tone = "yellow";
+    title = "强叙事，弱确认";
+    action = "不追高；已有仓位以观察为主，等待量能和生态代理确认。";
+  }
+
+  if (hardTriggered.length >= 2 || (priceChange < -5 && (volumeRatio ?? 0) > 1.5)) {
+    tone = "red";
+    title = "风险优先，暂停追高";
+    action = "暂停新增风险，先确认是否是假突破或消息兑现失败。";
+  }
+
+  if (priceStrong && !volumeWeak && !ecosystemWeak && macroOk) {
+    tone = "green";
+    title = "价格与环境共振";
+    action = "可以把它升级为核心观察，但仍需等硬催化继续确认。";
+  }
+
+  const thesisParts = [
+    priceStrong ? "价格非常强" : priceChange > 3 ? "价格偏强" : "价格尚未给出强确认",
+    volumeWeak ? "量能/换手不足" : "量能处于可接受区间",
+    ecosystemWeak ? "生态代理没有同步确认" : "生态代理压力可控",
+    macroOk ? "宏观环境未触发降级" : "宏观环境需要防守"
+  ];
+
+  return {
+    tone,
+    title,
+    action,
+    thesis: `${thesisParts.join("；")}。当前更像 SpaceX 叙事被价格快速定价，但资金面和产业链确认还不够完整。`,
+    reasons: [
+      `SPCX 当前 ${formatPrice(spcx.price)}，日内 ${formatChange(spcx.dailyChange)}，20日 ${formatChange(spcx.twentyDayChange)}。`,
+      `量能 ${volumeRatio == null ? "未更新" : `${volumeRatio.toFixed(1)}x 20日均量`}，${volumeWeak ? "低于正常换手区间，需要防止价格信号失真。" : "暂未触发换手衰减警报。"}`,
+      `SpaceX 生态代理：${redRelated.length} 个红灯，${yellowRelated.length} 个黄灯。`,
+      newsSignal ? `消息面：${newsSignal.current}` : "消息面：等待可验证催化。"
+    ],
+    watch: [
+      { label: "价格确认", value: formatChange(spcx.dailyChange), state: priceChange >= 10 ? "green" : priceChange < -3 ? "red" : "yellow" },
+      { label: "量能/换手", value: volumeRatio == null ? "未更新" : `${volumeRatio.toFixed(1)}x`, state: volumeWeak || (volumeRatio ?? 0) > 2 ? "yellow" : "green" },
+      { label: "生态代理", value: `${redRelated.length}红 / ${yellowRelated.length}黄`, state: ecosystemWeak ? "yellow" : "green" },
+      { label: "宏观", value: `VIX ${vix == null ? "-" : vix.toFixed(1)} / 10Y ${tenYear == null ? "-" : `${tenYear.toFixed(2)}%`}`, state: macroOk ? "green" : "yellow" },
+      { label: "风险触发", value: `${hardTriggered.length} 已触发 / ${watchTriggers.length} 待观察`, state: hardTriggered.length ? "red" : watchTriggers.length ? "yellow" : "green" }
+    ],
+    upgrade: [
+      "SPCX 价格不快速回落，并能站稳日内关键区间。",
+      "量能回到 0.7-1.5x，或放量上涨但不放量回落。",
+      "RDW/RKLB/ASTS 至少两个同步转强。",
+      "新闻从普通热度升级为发射、监管、合同、Starlink 数据或二级估值确认。"
+    ],
+    downgrade: [
+      "SPCX 放量回落，或跌破近5日关键低点。",
+      "量能继续低于 0.4x 且价格高位滞涨。",
+      "SpaceX 生态代理红灯扩大到 2 个以上并持续。",
+      "出现 FAA/FCC 延迟、发射事故、估值下修或二级交易折价扩大。"
+    ]
+  };
+}
+
+function DecisionSummary({ decision }: { decision: DecisionSummaryModel }) {
+  return (
+    <section className={cx("panel decision-panel focus-wide", decision.tone)}>
+      <div className="panel-header">
+        <div>
+          <span className="eyebrow">Decision Brief</span>
+          <h2>综合推断与操作建议</h2>
+        </div>
+        <RiskPill risk={decision.tone} />
+      </div>
+      <div className="decision-brief">
+        <div className="decision-main">
+          <span>{decision.title}</span>
+          <strong>{decision.action}</strong>
+          <p>{decision.thesis}</p>
+          <ul>
+            {decision.reasons.map((reason) => <li key={reason}>{reason}</li>)}
+          </ul>
+        </div>
+        <div className="decision-watch">
+          {decision.watch.map((item) => (
+            <div className={cx("decision-watch-item", item.state)} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="decision-rules">
+        <div>
+          <h3>升级条件</h3>
+          {decision.upgrade.map((item) => <p key={item}>{item}</p>)}
+        </div>
+        <div>
+          <h3>降级条件</h3>
+          {decision.downgrade.map((item) => <p key={item}>{item}</p>)}
+        </div>
+      </div>
+    </section>
   );
 }
 

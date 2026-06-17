@@ -1,3 +1,5 @@
+import { buildDecisionSummary } from "../server/decision-summary.js";
+
 const WATCHLIST = [
   { ticker: "SPCX", name: "SpaceX", theme: "Space/AI", group: "主资产", status: "观察", priority: 1 },
   { ticker: "RDW", name: "Redwire", theme: "SpaceX合作线索/太空基础设施", group: "SpaceX生态", status: "重点观察", priority: 2 },
@@ -51,7 +53,7 @@ export async function buildLiveDashboard() {
   const events = buildEvents(news);
   return {
     meta: {
-      version: "0.2.4",
+      version: "0.2.5",
       dataStatus: "ready",
       hasApiKey: Boolean(process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY),
       lastUpdated: new Date().toISOString(),
@@ -62,7 +64,8 @@ export async function buildLiveDashboard() {
     alerts: buildAlerts(assets),
     events,
     risk: buildRisk(assets),
-    themeHeat: buildThemeHeat(assets)
+    themeHeat: buildThemeHeat(assets),
+    decisionSummary: buildDecisionSummary(assets, marketSnapshot)
   };
 }
 
@@ -80,7 +83,7 @@ async function fetchCloudSnapshot() {
       ...snapshot,
       meta: {
         ...snapshot.meta,
-        version: snapshot.meta?.version || "0.2.4",
+        version: snapshot.meta?.version || "0.2.5",
         dataStatus: snapshot.meta?.dataStatus || "ready",
         message: `Cloud batch snapshot via Vercel Blob. ${snapshot.meta?.message || ""}`.trim(),
         cloudSource: "vercel-blob",

@@ -436,6 +436,123 @@ select {
   color: #ff9d9d;
 }
 
+.decision-panel.green {
+  border-color: rgba(139, 220, 154, 0.28);
+}
+
+.decision-panel.yellow {
+  border-color: rgba(240, 199, 95, 0.34);
+}
+
+.decision-panel.red {
+  border-color: rgba(216, 93, 99, 0.4);
+}
+
+.decision-brief {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+  gap: 14px;
+  padding: 16px;
+}
+
+.decision-main {
+  display: grid;
+  gap: 10px;
+}
+
+.decision-main span {
+  color: #9aa7b5;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.decision-main strong {
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.decision-main p,
+.decision-main li,
+.decision-rules p {
+  color: #b8c2cd;
+  line-height: 1.55;
+}
+
+.decision-main p {
+  margin: 0;
+}
+
+.decision-main ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.decision-watch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.decision-watch-item {
+  min-height: 74px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.decision-watch-item.green {
+  border-left-color: #77e394;
+}
+
+.decision-watch-item.yellow {
+  border-left-color: #e4c15d;
+}
+
+.decision-watch-item.red {
+  border-left-color: #ff7070;
+}
+
+.decision-watch-item span,
+.decision-watch-item strong {
+  display: block;
+}
+
+.decision-watch-item span {
+  color: #9aa7b5;
+  font-size: 12px;
+}
+
+.decision-watch-item strong {
+  margin-top: 8px;
+  font-size: 18px;
+}
+
+.decision-rules {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 16px 16px;
+}
+
+.decision-rules > div {
+  padding: 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.decision-rules h3 {
+  margin-bottom: 10px;
+}
+
+.decision-rules p {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
 .focus-card-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1152,14 +1269,17 @@ dd {
   .detail-grid,
   .score-grid,
   .risk-metrics,
-  .risk-signal-grid {
+  .risk-signal-grid,
+  .decision-brief,
+  .decision-rules {
     grid-template-columns: 1fr;
   }
 
   .spacex-quick-grid,
   .focus-card-grid,
   .macro-grid,
-  .trigger-item {
+  .trigger-item,
+  .decision-watch {
     grid-template-columns: 1fr;
   }
 

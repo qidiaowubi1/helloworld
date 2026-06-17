@@ -63,17 +63,21 @@ try {
       exit $exportExitCode
     }
 
-    Write-Log "Publishing dashboard snapshot to Vercel Blob."
-    $publishOutput = & node scripts/publish-dashboard-blob.js 2>&1
-    foreach ($line in $publishOutput) {
-      Add-Content -Path $logPath -Value ($line.ToString())
+    if ($env:ENABLE_LOCAL_BLOB_PUBLISH -eq "true") {
+      Write-Log "Publishing dashboard snapshot to Vercel Blob."
+      $publishOutput = & node scripts/publish-dashboard-blob.js 2>&1
+      foreach ($line in $publishOutput) {
+        Add-Content -Path $logPath -Value ($line.ToString())
+      }
+      $publishExitCode = $LASTEXITCODE
+      if ($publishExitCode -ne 0) {
+        Write-Log "Dashboard Blob publish failed with exit code $publishExitCode. Check .env.local, Vercel login, or Blob store link."
+        exit $publishExitCode
+      }
+      Write-Log "Dashboard Blob publish completed successfully."
+    } else {
+      Write-Log "Skipping Vercel Blob publish. Set ENABLE_LOCAL_BLOB_PUBLISH=true to allow local jobs to overwrite production."
     }
-    $publishExitCode = $LASTEXITCODE
-    if ($publishExitCode -ne 0) {
-      Write-Log "Dashboard Blob publish failed with exit code $publishExitCode. Check .env.local, Vercel login, or Blob store link."
-      exit $publishExitCode
-    }
-    Write-Log "Dashboard Blob publish completed successfully."
   } else {
     Write-Log "Data update failed with exit code $exitCode. Check .env.local and provider errors above."
   }

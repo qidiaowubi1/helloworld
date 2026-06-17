@@ -5,6 +5,11 @@ import { put } from "@vercel/blob";
 
 await loadLocalEnv();
 
+if (String(process.env.ENABLE_LOCAL_BLOB_PUBLISH || "").toLowerCase() !== "true") {
+  console.log("Skipped Vercel Blob publish. Set ENABLE_LOCAL_BLOB_PUBLISH=true to allow local jobs to overwrite the production snapshot.");
+  process.exit(0);
+}
+
 const inputPath = resolve(process.cwd(), process.argv[2] || "data/dashboard.json");
 const pathname = process.env.DASHBOARD_BLOB_PATH || "dashboard/latest.json";
 const token = process.env.BLOB_READ_WRITE_TOKEN;
